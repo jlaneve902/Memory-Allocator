@@ -1,6 +1,9 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <stddef.h>
+#include <stdlib.h>
+#include <string.h>
 
 /**
  * Union used to track size and whether or not block of memory is free to overwrite with new memory.
@@ -70,7 +73,6 @@ void free(void* block){
     pthread_mutex_unlock(&global_malloc_lock);
 }
 
-
 /**
  * Allocates new memory on the heap. Returns pointer to block of memory.
  */
@@ -122,3 +124,48 @@ void* malloc(size_t size){
     pthread_mutex_unlock(&global_malloc_lock);
     return (void*)(header+1);
 }
+
+/**
+ * Allocates memory similar to malloc, but zero initialized all data so can be accessed immediately.
+ */
+
+ void* calloc(size_t num, size_t nsize){
+    size_t size;
+    void* block;
+    if(!num || !nsize){
+        return NULL;
+    }
+    size = num * nsize;
+    if(nsize != size/num){
+        return NULL;
+    }
+    block = malloc(size);
+    if(!block){
+        return NULL;
+    }
+    memset(block,0,size);
+    return block;
+ }
+
+ /**
+  * Reallocate current block of memory to expand or shrink its size.
+  */
+ void* realloc(void *block, size_t size){
+    header_t *header;
+    void *ret;
+    if(!block || !size){
+        free(block);
+        return malloc(size);
+    }
+    header = (header_t*)block -1;
+    if(header->s.size >= size){
+        return block;
+    }
+    ret = malloc(size);
+    if(ret){
+        memcpy(ret,block,header->s.size);
+        free(block);
+    }
+
+    return ret;
+ }
