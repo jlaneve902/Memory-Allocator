@@ -36,6 +36,42 @@ header_t* get_free_block(size_t size){
 }
 
 /**
+ * Free allocated memory fully if tail, marks as free if not.
+ */
+void free(void* block){
+    header_t* header, *tmp;
+    void* programBreak;
+
+    if(!block)
+        return;
+
+    pthread_mutex_lock(&global_malloc_lock);
+    header = (header_t*)block -1;
+
+    programBreak = sbrk(0);
+    if((char*)block + header->s.size == programBreak){
+        if(head == tail){
+            head = tail = NULL;
+        }else{
+            tmp = head;
+            while(tmp){
+                if(tmp->s.next == tail){
+                    tmp->s.next = NULL;
+                    tail = tmp;
+                }
+                tmp = tmp->s.next;
+            }
+        }
+        sbrk(0 - sizeof(header_t) - header->s.size);
+        pthread_mutex_unlock(&global_malloc_lock);
+        return;
+    }
+    header->s.is_free = 1;
+    pthread_mutex_unlock(&global_malloc_lock);
+}
+
+
+/**
  * Allocates new memory on the heap. Returns pointer to block of memory.
  */
 void* malloc(size_t size){
